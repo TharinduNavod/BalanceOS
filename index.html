@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BalanceOS — Personal Workload Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ONBOARDING -->
+<div id="onboardScreen" class="onboard-screen">
+  <canvas id="bgCanvas"></canvas>
+  <div class="onboard-content">
+    <div class="onboard-card">
+      <div class="ob-logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="10" fill="url(#lg)"/>
+          <path d="M8 22L16 10L24 22" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="16" cy="10" r="2" fill="white"/>
+          <defs><linearGradient id="lg" x1="0" y1="0" x2="32" y2="32"><stop stop-color="#6EE7B7"/><stop offset="1" stop-color="#3B82F6"/></linearGradient></defs>
+        </svg>
+      </div>
+      <div class="ob-brand">Balance<span>OS</span></div>
+      <div class="ob-tagline">Your personal life dashboard</div>
+      <div class="ob-divider"></div>
+      <div id="ob-setup">
+        <h2 class="ob-title">Set up your profile</h2>
+        <p class="ob-sub">Personalize your workspace in seconds</p>
+        <div class="ob-field">
+          <label>Your Name</label>
+          <input id="obName" type="text" placeholder="e.g. Kavindu Perera" autocomplete="name">
+        </div>
+        <div class="ob-field">
+          <label>What are you studying?</label>
+          <input id="obDegree" type="text" placeholder="e.g. BSc Computer Science">
+        </div>
+        <div class="ob-field">
+          <label>Your sport / physical activity</label>
+          <input id="obSport" type="text" placeholder="e.g. Swimming, Cricket, Gym">
+        </div>
+        <div class="ob-color-row">
+          <label>Pick a theme color</label>
+          <div class="ob-colors" id="obColors"></div>
+        </div>
+        <div class="ob-err" id="obErr"></div>
+        <button class="ob-btn" onclick="finishSetup()">Let's Go →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP ROOT -->
+<div id="appRoot" style="display:none">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-profile">
+      <div class="sb-avatar" id="sbAvatar"></div>
+      <div class="sb-info">
+        <div class="sb-name" id="sbName"></div>
+        <div class="sb-degree" id="sbDegree"></div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-group-label">Overview</div>
+      <button class="sb-btn active" data-sec="dashboard" onclick="showSection('dashboard',this)">
+        <span class="sb-icon">⊞</span> Dashboard
+      </button>
+      <div class="sb-group-label">My Life</div>
+      <button class="sb-btn" data-sec="academics" onclick="showSection('academics',this)">
+        <span class="sb-icon">📚</span> Academics
+      </button>
+      <button class="sb-btn" data-sec="sports" onclick="showSection('sports',this)">
+        <span class="sb-icon">🏃</span> Sports & Fitness
+      </button>
+      <button class="sb-btn" data-sec="routine" onclick="showSection('routine',this)">
+        <span class="sb-icon">☀️</span> Daily Routine
+      </button>
+      <div class="sb-group-label">Planning</div>
+      <button class="sb-btn" data-sec="timeline" onclick="showSection('timeline',this)">
+        <span class="sb-icon">📅</span> Timeline
+      </button>
+      <button class="sb-btn" data-sec="tasks" onclick="showSection('tasks',this)">
+        <span class="sb-icon">✅</span> Tasks <span class="sb-badge" id="taskBadge" style="display:none"></span>
+      </button>
+      <div class="sb-group-label">Resources</div>
+      <button class="sb-btn" data-sec="reminders" onclick="showSection('reminders',this)">
+        <span class="sb-icon">🔔</span> Reminders <span class="sb-badge" id="reminderBadge" style="display:none"></span>
+      </button>
+      <button class="sb-btn" data-sec="files" onclick="showSection('files',this)">
+        <span class="sb-icon">📁</span> Files & Docs
+      </button>
+    </nav>
+    <div class="sb-bottom">
+      <button class="sb-reset" onclick="resetProfile()">↩ Reset Profile</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-wrap">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-center">
+        <div class="tb-title" id="tbTitle">Dashboard</div>
+        <div class="tb-sub" id="tbSub">Your personal balance overview</div>
+      </div>
+      <div class="tb-date" id="tbDate"></div>
+    </header>
+
+    <!-- SECTIONS -->
+    <div class="sections-wrap">
+
+      <!-- DASHBOARD -->
+      <section class="section active" id="sec-dashboard">
+        <div class="dash-grid">
+          <div class="dash-hero">
+            <div class="dash-greeting" id="dashGreeting"></div>
+            <div class="dash-subtext" id="dashSport"></div>
+            <div class="balance-ring-wrap">
+              <canvas id="balanceRing" width="180" height="180"></canvas>
+              <div class="ring-label">
+                <div class="ring-pct" id="ringPct">0%</div>
+                <div class="ring-sub">balanced</div>
+              </div>
+            </div>
+            <div class="balance-legend">
+              <div class="bl-item"><span class="bl-dot" style="background:#6EE7B7"></span>Academics</div>
+              <div class="bl-item"><span class="bl-dot" style="background:#60A5FA"></span>Sports</div>
+              <div class="bl-item"><span class="bl-dot" style="background:#F472B6"></span>Routine</div>
+            </div>
+          </div>
+
+          <div class="dash-stats">
+            <div class="stat-card" onclick="showSection('tasks', document.querySelector('[data-sec=tasks]'))">
+              <div class="stat-icon">✅</div>
+              <div class="stat-val" id="statTasks">0</div>
+              <div class="stat-lbl">Pending Tasks</div>
+            </div>
+            <div class="stat-card" onclick="showSection('academics', document.querySelector('[data-sec=academics]'))">
+              <div class="stat-icon">📚</div>
+              <div class="stat-val" id="statAcad">0</div>
+              <div class="stat-lbl">Academic Items</div>
+            </div>
+            <div class="stat-card" onclick="showSection('sports', document.querySelector('[data-sec=sports]'))">
+              <div class="stat-icon">🏃</div>
+              <div class="stat-val" id="statSports">0</div>
+              <div class="stat-lbl">Workouts This Week</div>
+            </div>
+            <div class="stat-card" onclick="showSection('files', document.querySelector('[data-sec=files]'))">
+              <div class="stat-icon">📁</div>
+              <div class="stat-val" id="statFiles">0</div>
+              <div class="stat-lbl">Files Saved</div>
+            </div>
+          </div>
+
+          <div class="dash-section-card">
+            <div class="dsc-head"><div class="dsc-title">📅 Upcoming Timeline</div><button class="dsc-btn" onclick="showSection('timeline',document.querySelector('[data-sec=timeline]'))">View all</button></div>
+            <div id="dashTimeline"></div>
+          </div>
+
+          <div class="dash-section-card">
+            <div class="dsc-head"><div class="dsc-title">✅ Recent Tasks</div><button class="dsc-btn" onclick="showSection('tasks',document.querySelector('[data-sec=tasks]'))">View all</button></div>
+            <div id="dashTasks"></div>
+          </div>
+
+          <div class="dash-section-card">
+            <div class="dsc-head"><div class="dsc-title">☀️ Today's Routine</div><button class="dsc-btn" onclick="showSection('routine',document.querySelector('[data-sec=routine]'))">Edit</button></div>
+            <div id="dashRoutine"></div>
+          </div>
+
+          <div class="dash-section-card">
+            <div class="dsc-head"><div class="dsc-title">📚 Academic Load</div><button class="dsc-btn" onclick="showSection('academics',document.querySelector('[data-sec=academics]'))">View all</button></div>
+            <div id="dashAcad"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACADEMICS -->
+      <section class="section" id="sec-academics">
+        <div class="sec-toolbar">
+          <div class="stb-filters">
+            <button class="filter-btn active" data-filter="all" onclick="filterAcad('all',this)">All</button>
+            <button class="filter-btn" data-filter="assignment" onclick="filterAcad('assignment',this)">Assignments</button>
+            <button class="filter-btn" data-filter="exam" onclick="filterAcad('exam',this)">Exams</button>
+            <button class="filter-btn" data-filter="lecture" onclick="filterAcad('lecture',this)">Lectures</button>
+            <button class="filter-btn" data-filter="lab" onclick="filterAcad('lab',this)">Labs</button>
+          </div>
+          <button class="add-btn" onclick="openAcadModal()">+ Add Item</button>
+        </div>
+        <div class="acad-list" id="acadList"></div>
+      </section>
+
+      <!-- SPORTS -->
+      <section class="section" id="sec-sports">
+        <div class="sports-header">
+          <div class="sports-week-nav">
+            <button onclick="changeWeek(-1)">‹</button>
+            <span id="weekLabel"></span>
+            <button onclick="changeWeek(1)">›</button>
+          </div>
+          <button class="add-btn" onclick="openSportModal()">+ Log Session</button>
+        </div>
+        <div class="week-grid" id="weekGrid"></div>
+        <div class="sports-log" id="sportsList"></div>
+      </section>
+
+      <!-- ROUTINE -->
+      <section class="section" id="sec-routine">
+        <div class="routine-intro">
+          <p>Build your ideal daily schedule. Check off items as you complete them each day.</p>
+          <button class="add-btn" onclick="openRoutineModal()">+ Add Slot</button>
+        </div>
+        <div class="routine-wrap" id="routineWrap"></div>
+      </section>
+
+      <!-- TIMELINE -->
+      <section class="section" id="sec-timeline">
+        <div class="sec-toolbar">
+          <div class="tl-legend">
+            <span class="tl-dot" style="background:#6EE7B7"></span>Upcoming
+            <span class="tl-dot" style="background:#60A5FA;margin-left:12px"></span>Active
+            <span class="tl-dot" style="background:#A78BFA;margin-left:12px"></span>Done
+          </div>
+          <button class="add-btn" onclick="openMilestoneModal()">+ Add Milestone</button>
+        </div>
+        <div class="timeline-track" id="timelineTrack"></div>
+      </section>
+
+      <!-- TASKS -->
+      <section class="section" id="sec-tasks">
+        <div class="sec-toolbar">
+          <div class="stb-filters">
+            <button class="filter-btn active" data-filter="all" onclick="filterTasks('all',this)">All</button>
+            <button class="filter-btn" data-filter="todo" onclick="filterTasks('todo',this)">To Do</button>
+            <button class="filter-btn" data-filter="inprogress" onclick="filterTasks('inprogress',this)">In Progress</button>
+            <button class="filter-btn" data-filter="done" onclick="filterTasks('done',this)">Done</button>
+          </div>
+          <button class="add-btn" onclick="openTaskModal()">+ Add Task</button>
+        </div>
+        <div class="kanban-wrap" id="kanbanWrap">
+          <div class="kanban-col">
+            <div class="kanban-head todo-head">To Do <span id="todoCount"></span></div>
+            <div class="kanban-cards" id="colTodo"></div>
+          </div>
+          <div class="kanban-col">
+            <div class="kanban-head inprog-head">In Progress <span id="inprogCount"></span></div>
+            <div class="kanban-cards" id="colInprog"></div>
+          </div>
+          <div class="kanban-col">
+            <div class="kanban-head done-head">Done <span id="doneCount"></span></div>
+            <div class="kanban-cards" id="colDone"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- REMINDERS -->
+      <section class="section" id="sec-reminders">
+        <div class="sec-toolbar">
+          <div class="stb-filters">
+            <button class="filter-btn active" data-filter="all" onclick="filterReminders('all',this)">All</button>
+            <button class="filter-btn" data-filter="academic" onclick="filterReminders('academic',this)">📚 Academic</button>
+            <button class="filter-btn" data-filter="personal" onclick="filterReminders('personal',this)">⭐ Personal</button>
+            <button class="filter-btn" data-filter="work" onclick="filterReminders('work',this)">💼 Work</button>
+            <button class="filter-btn" data-filter="learning" onclick="filterReminders('learning',this)">🎯 Learning</button>
+          </div>
+          <button class="add-btn" onclick="openReminderModal()">+ Add Reminder</button>
+        </div>
+        <div class="rem-stats-row" id="remStatsRow"></div>
+        <div class="rem-list" id="remindersList"></div>
+      </section>
+
+      <!-- FILES -->
+      <section class="section" id="sec-files">
+        <div class="files-hero">
+          <div class="files-drop" id="filesDrop" ondragover="event.preventDefault()" ondrop="handleFileDrop(event)">
+            <div class="fd-icon">☁️</div>
+            <div class="fd-title">Drop files to upload to Google Drive</div>
+            <div class="fd-sub">or <button class="fd-browse" onclick="document.getElementById('fileInput').click()">browse files</button></div>
+            <input type="file" id="fileInput" multiple style="display:none" onchange="handleFileSelect(event)">
+          </div>
+          <div class="upload-progress" id="uploadProgress" style="display:none">
+            <div class="up-bar"><div class="up-fill" id="upFill"></div></div>
+            <div class="up-text" id="upText">Uploading...</div>
+          </div>
+        </div>
+        <div class="files-filter">
+          <button class="filter-btn active" data-filter="all" onclick="filterFiles('all',this)">All Files</button>
+          <button class="filter-btn" data-filter="pdf" onclick="filterFiles('pdf',this)">PDFs</button>
+          <button class="filter-btn" data-filter="doc" onclick="filterFiles('doc',this)">Docs</button>
+          <button class="filter-btn" data-filter="ppt" onclick="filterFiles('ppt',this)">Slides</button>
+          <button class="filter-btn" data-filter="img" onclick="filterFiles('img',this)">Images</button>
+        </div>
+        <div class="files-grid" id="filesGrid"></div>
+      </section>
+
+    </div><!-- /sections-wrap -->
+  </div><!-- /main-wrap -->
+</div><!-- /appRoot -->
+
+<!-- MODAL BACKDROP -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal()"></div>
+
+<!-- ACADEMIC MODAL -->
+<div class="modal" id="acadModal">
+  <div class="modal-head">
+    <div class="modal-title" id="acadModalTitle">Add Academic Item</div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="mf"><label>Title</label><input class="mi" id="acadTitle" placeholder="e.g. Data Structures Assignment 2"></div>
+    <div class="mf"><label>Subject / Module</label><input class="mi" id="acadSubject" placeholder="e.g. CS3040"></div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Type</label>
+        <select class="mi" id="acadType">
+          <option value="assignment">Assignment</option>
+          <option value="exam">Exam</option>
+          <option value="lecture">Lecture</option>
+          <option value="lab">Lab</option>
+          <option value="project">Project</option>
+        </select>
+      </div>
+      <div class="mf" style="flex:1"><label>Priority</label>
+        <select class="mi" id="acadPriority">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+    </div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Due Date</label><input class="mi" id="acadDue" type="date"></div>
+      <div class="mf" style="flex:1"><label>Status</label>
+        <select class="mi" id="acadStatus">
+          <option value="pending">Pending</option>
+          <option value="inprogress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+    </div>
+    <div class="mf"><label>Notes</label><textarea class="mi mta" id="acadNotes" placeholder="Additional notes..."></textarea></div>
+  </div>
+  <div class="modal-foot">
+    <button class="modal-del" id="acadDel" style="display:none" onclick="deleteAcad()">Delete</button>
+    <button class="modal-save" onclick="saveAcad()">Save</button>
+  </div>
+</div>
+
+<!-- SPORT MODAL -->
+<div class="modal" id="sportModal">
+  <div class="modal-head">
+    <div class="modal-title" id="sportModalTitle">Log Session</div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="mf"><label>Activity</label><input class="mi" id="sportActivity" placeholder="e.g. Swimming, Gym, Cricket"></div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Date</label><input class="mi" id="sportDate" type="date"></div>
+      <div class="mf" style="flex:1"><label>Duration (mins)</label><input class="mi" id="sportDuration" type="number" placeholder="60"></div>
+    </div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Intensity</label>
+        <select class="mi" id="sportIntensity">
+          <option value="light">Light 🟢</option>
+          <option value="moderate" selected>Moderate 🟡</option>
+          <option value="intense">Intense 🔴</option>
+        </select>
+      </div>
+      <div class="mf" style="flex:1"><label>Calories (optional)</label><input class="mi" id="sportCalories" type="number" placeholder="300"></div>
+    </div>
+    <div class="mf"><label>Notes</label><textarea class="mi mta" id="sportNotes" placeholder="How did it go?"></textarea></div>
+  </div>
+  <div class="modal-foot">
+    <button class="modal-del" id="sportDel" style="display:none" onclick="deleteSport()">Delete</button>
+    <button class="modal-save" onclick="saveSport()">Save</button>
+  </div>
+</div>
+
+<!-- ROUTINE MODAL -->
+<div class="modal" id="routineModal">
+  <div class="modal-head">
+    <div class="modal-title" id="routineModalTitle">Add Routine Slot</div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="mf"><label>Activity Name</label><input class="mi" id="routineName" placeholder="e.g. Morning Run, Study Block"></div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Time</label><input class="mi" id="routineTime" type="time"></div>
+      <div class="mf" style="flex:1"><label>Duration (mins)</label><input class="mi" id="routineDuration" type="number" placeholder="30"></div>
+    </div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Category</label>
+        <select class="mi" id="routineCat">
+          <option value="morning">🌅 Morning</option>
+          <option value="study">📚 Study</option>
+          <option value="sports">🏃 Sports</option>
+          <option value="meal">🍽️ Meal</option>
+          <option value="rest">😴 Rest</option>
+          <option value="social">👥 Social</option>
+          <option value="other">📌 Other</option>
+        </select>
+      </div>
+      <div class="mf" style="flex:1"><label>Days</label>
+        <select class="mi" id="routineDays">
+          <option value="daily">Every Day</option>
+          <option value="weekday">Weekdays</option>
+          <option value="weekend">Weekends</option>
+          <option value="mon">Monday</option>
+          <option value="tue">Tuesday</option>
+          <option value="wed">Wednesday</option>
+          <option value="thu">Thursday</option>
+          <option value="fri">Friday</option>
+          <option value="sat">Saturday</option>
+          <option value="sun">Sunday</option>
+        </select>
+      </div>
+    </div>
+    <div class="mf"><label>Notes</label><input class="mi" id="routineNote" placeholder="Optional note"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="modal-del" id="routineDel" style="display:none" onclick="deleteRoutine()">Delete</button>
+    <button class="modal-save" onclick="saveRoutine()">Save</button>
+  </div>
+</div>
+
+<!-- MILESTONE MODAL -->
+<div class="modal" id="milestoneModal">
+  <div class="modal-head">
+    <div class="modal-title" id="msModalTitle">Add Milestone</div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="mf"><label>Milestone Name</label><input class="mi" id="msName" placeholder="e.g. Final Exam Week, Sports Tournament"></div>
+    <div class="mf"><label>Category</label>
+      <select class="mi" id="msCat">
+        <option value="academics">📚 Academics</option>
+        <option value="sports">🏃 Sports</option>
+        <option value="personal">⭐ Personal</option>
+        <option value="deadline">⚠️ Deadline</option>
+      </select>
+    </div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Start Date</label><input class="mi" id="msStart" type="date"></div>
+      <div class="mf" style="flex:1"><label>End Date</label><input class="mi" id="msEnd" type="date"></div>
+    </div>
+    <div class="mf"><label>Status</label>
+      <select class="mi" id="msStatus">
+        <option value="upcoming">Upcoming</option>
+        <option value="active">Active</option>
+        <option value="done">Done</option>
+      </select>
+    </div>
+    <div class="mf"><label>Notes</label><textarea class="mi mta" id="msNotes" placeholder="Details..."></textarea></div>
+  </div>
+  <div class="modal-foot">
+    <button class="modal-del" id="msDel" style="display:none" onclick="deleteMilestone()">Delete</button>
+    <button class="modal-save" onclick="saveMilestone()">Save</button>
+  </div>
+</div>
+
+<!-- TASK MODAL -->
+<div class="modal" id="taskModal">
+  <div class="modal-head">
+    <div class="modal-title" id="taskModalTitle">Add Task</div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="mf"><label>Task Title</label><input class="mi" id="taskTitle" placeholder="What needs to be done?"></div>
+    <div class="mf"><label>Description</label><textarea class="mi mta" id="taskDesc" placeholder="Optional details..."></textarea></div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Category</label>
+        <select class="mi" id="taskCat">
+          <option value="academics">📚 Academics</option>
+          <option value="sports">🏃 Sports</option>
+          <option value="personal">⭐ Personal</option>
+          <option value="routine">☀️ Routine</option>
+        </select>
+      </div>
+      <div class="mf" style="flex:1"><label>Priority</label>
+        <select class="mi" id="taskPriority">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+    </div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Status</label>
+        <select class="mi" id="taskStatus">
+          <option value="todo">To Do</option>
+          <option value="inprogress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="mf" style="flex:1"><label>Due Date</label><input class="mi" id="taskDue" type="date"></div>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="modal-del" id="taskDel" style="display:none" onclick="deleteTask()">Delete</button>
+    <button class="modal-save" onclick="saveTask()">Save</button>
+  </div>
+</div>
+
+<!-- REMINDER MODAL -->
+<div class="modal" id="reminderModal">
+  <div class="modal-head">
+    <div class="modal-title" id="reminderModalTitle">Add Reminder</div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="mf"><label>Title</label><input class="mi" id="remTitle" placeholder="e.g. Algorithms Lecture — Week 5"></div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Category</label>
+        <select class="mi" id="remCat" onchange="updateRemSubcats()">
+          <option value="academic">📚 Academic</option>
+          <option value="personal">⭐ Personal</option>
+          <option value="work">💼 Work</option>
+          <option value="learning">🎯 Learning</option>
+        </select>
+      </div>
+      <div class="mf" style="flex:1"><label>Type</label>
+        <select class="mi" id="remType"></select>
+      </div>
+    </div>
+    <div class="mf-row">
+      <div class="mf" style="flex:1"><label>Date</label><input class="mi" id="remDate" type="date"></div>
+      <div class="mf" style="flex:1"><label>Time</label><input class="mi" id="remTime" type="time"></div>
+    </div>
+    <div class="mf"><label>Note (optional)</label><input class="mi" id="remNote" placeholder="Any extra details..."></div>
+  </div>
+  <div class="modal-foot">
+    <button class="modal-del" id="reminderDel" style="display:none" onclick="deleteReminder()">Delete</button>
+    <button class="modal-save" onclick="saveReminder()">Save</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
