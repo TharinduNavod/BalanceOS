@@ -276,13 +276,37 @@
         <div class="rem-list" id="remindersList"></div>
       </section>
 
-      <!-- FILES -->
+      <!-- ══════════════════════════════════════════
+           FILES & DOCS — Sectioned Folder System
+           ══════════════════════════════════════════ -->
       <section class="section" id="sec-files">
+
+        <!-- Top toolbar: file type filter + manage sections -->
+        <div class="files-topbar">
+          <div class="stb-filters" id="filesTypeFilter">
+            <button class="filter-btn active" data-filter="all" onclick="filterFiles('all',this)">All Files</button>
+            <button class="filter-btn" data-filter="pdf"  onclick="filterFiles('pdf',this)">PDFs</button>
+            <button class="filter-btn" data-filter="doc"  onclick="filterFiles('doc',this)">Docs</button>
+            <button class="filter-btn" data-filter="ppt"  onclick="filterFiles('ppt',this)">Slides</button>
+            <button class="filter-btn" data-filter="img"  onclick="filterFiles('img',this)">Images</button>
+          </div>
+          <button class="add-btn files-section-btn" onclick="openFolderModal()">+ New Section</button>
+        </div>
+
+        <!-- Section tabs (folder tabs) -->
+        <div class="files-tabs-wrap">
+          <div class="files-tabs" id="filesTabs">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Upload drop zone (shown inside active section) -->
         <div class="files-hero">
           <div class="files-drop" id="filesDrop" ondragover="event.preventDefault()" ondrop="handleFileDrop(event)">
             <div class="fd-icon">☁️</div>
-            <div class="fd-title">Drop files to upload to Google Drive</div>
+            <div class="fd-title">Drop files here to upload</div>
             <div class="fd-sub">or <button class="fd-browse" onclick="document.getElementById('fileInput').click()">browse files</button></div>
+            <div class="fd-section-hint" id="fdSectionHint"></div>
             <input type="file" id="fileInput" multiple style="display:none" onchange="handleFileSelect(event)">
           </div>
           <div class="upload-progress" id="uploadProgress" style="display:none">
@@ -290,14 +314,10 @@
             <div class="up-text" id="upText">Uploading...</div>
           </div>
         </div>
-        <div class="files-filter">
-          <button class="filter-btn active" data-filter="all" onclick="filterFiles('all',this)">All Files</button>
-          <button class="filter-btn" data-filter="pdf" onclick="filterFiles('pdf',this)">PDFs</button>
-          <button class="filter-btn" data-filter="doc" onclick="filterFiles('doc',this)">Docs</button>
-          <button class="filter-btn" data-filter="ppt" onclick="filterFiles('ppt',this)">Slides</button>
-          <button class="filter-btn" data-filter="img" onclick="filterFiles('img',this)">Images</button>
-        </div>
+
+        <!-- Files grid -->
         <div class="files-grid" id="filesGrid"></div>
+
       </section>
 
     </div><!-- /sections-wrap -->
@@ -537,6 +557,39 @@
   <div class="modal-foot">
     <button class="modal-del" id="reminderDel" style="display:none" onclick="deleteReminder()">Delete</button>
     <button class="modal-save" onclick="saveReminder()">Save</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     FOLDER / SECTION MODAL (NEW)
+     ══════════════════════════════ -->
+<div class="modal" id="folderModal">
+  <div class="modal-head">
+    <div class="modal-title" id="folderModalTitle">New File Section</div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="mf">
+      <label>Section Name</label>
+      <input class="mi" id="folderName" placeholder="e.g. Industrial Training, FYP, Semester 4">
+    </div>
+    <div class="mf">
+      <label>Icon / Emoji</label>
+      <div class="folder-emoji-row" id="folderEmojiRow"></div>
+      <input class="mi" id="folderEmoji" placeholder="Or type your own emoji" maxlength="4" style="margin-top:8px">
+    </div>
+    <div class="mf">
+      <label>Color Tag</label>
+      <div class="folder-color-row" id="folderColorRow"></div>
+    </div>
+    <div class="mf">
+      <label>Description (optional)</label>
+      <input class="mi" id="folderDesc" placeholder="e.g. All documents for my 6-month placement">
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button class="modal-del" id="folderDel" style="display:none" onclick="deleteFolder()">Delete Section</button>
+    <button class="modal-save" onclick="saveFolder()">Save</button>
   </div>
 </div>
 

@@ -209,6 +209,7 @@ function renderAll() {
   renderTimeline();
   renderTasks();
   renderReminders();
+  renderFileTabs();
   renderFiles();
 }
 
@@ -762,11 +763,151 @@ function deleteTask() {
   save(); closeModal(); renderTasks(); renderDashboard();
 }
 
-// ===== FILES =====
+
+// ===== FILES — Folder/Section System =====
+// state.fileFolders = [ { id, name, emoji, color, desc } ]
+// state.files       = [ { id, name, size, mimeType, url, downloadUrl, date, folderId } ]
+
+const FOLDER_EMOJIS = ['💼','🎓','📐','🧪','📋','🗂️','📊','🖥️','📝','🔬','🏗️','📦','🌐','⚙️','🎯'];
+const FOLDER_COLORS = ['#6EE7B7','#60A5FA','#F472B6','#A78BFA','#FBBF24','#FB7185','#34D399','#38BDF8','#F97316','#A3E635'];
+
+let activeFolderId  = 'all';  // 'all' or folder id
+let fileFilter      = 'all';
+let editingFolderId = null;
+
+// ── Ensure default folders exist on first run ─────────────────
+function ensureDefaultFolders() {
+  if (!state.fileFolders) state.fileFolders = [];
+  // Migrate old files that have no folderId → assign 'general'
+  if (!state.fileFolders.find(f => f.id === 'general')) {
+    state.fileFolders.unshift({ id:'general', name:'General', emoji:'📁', color:'#6EE7B7', desc:'' });
+  }
+  state.files.forEach(f => { if (!f.folderId) f.folderId = 'general'; });
+}
+
+// ── Render the tab bar ────────────────────────────────────────
+function renderFileTabs() {
+  ensureDefaultFolders();
+  const wrap = document.getElementById('filesTabs');
+  if (!wrap) return;
+
+  const allCount = state.files.length;
+
+  let html = `<button class="ftab ${activeFolderId==='all'?'active':''}" onclick="switchFolder('all')">
+    <span class="ftab-emoji">🗄️</span>
+    <span class="ftab-name">All Files</span>
+    <span class="ftab-count">${allCount}</span>
+  </button>`;
+
+  state.fileFolders.forEach(folder => {
+    const count = state.files.filter(f => f.folderId === folder.id).length;
+    html += `<button class="ftab ${activeFolderId===folder.id?'active':''}" onclick="switchFolder('${folder.id}')">
+      <span class="ftab-emoji">${folder.emoji||'📁'}</span>
+      <span class="ftab-name">${folder.name}</span>
+      <span class="ftab-count">${count}</span>
+      <span class="ftab-edit" title="Edit section" onclick="openFolderModal('${folder.id}',event)">✎</span>
+    </button>`;
+  });
+
+  wrap.innerHTML = html;
+
+  // Update drop zone hint
+  const hint = document.getElementById('fdSectionHint');
+  if (hint) {
+    if (activeFolderId === 'all') {
+      hint.textContent = 'Files will be saved to General by default';
+    } else {
+      const f = state.fileFolders.find(f => f.id === activeFolderId);
+      hint.textContent = f ? `Uploading into: ${f.emoji} ${f.name}` : '';
+      hint.style.color = f ? f.color : '';
+    }
+  }
+}
+
+// ── Switch active folder tab ──────────────────────────────────
+function switchFolder(id) {
+  activeFolderId = id;
+  renderFileTabs();
+  renderFiles();
+}
+
+// ── Render the files grid ─────────────────────────────────────
+function renderFiles() {
+  ensureDefaultFolders();
+  const grid = document.getElementById('filesGrid');
+  if (!grid) return;
+
+  let files = [...state.files];
+
+  // Filter by folder tab
+  if (activeFolderId !== 'all') {
+    files = files.filter(f => f.folderId === activeFolderId);
+  }
+
+  // Filter by file type
+  if (fileFilter !== 'all') {
+    const exts = { pdf:['pdf'], doc:['doc','docx'], ppt:['ppt','pptx'], img:['jpg','jpeg','png','gif','webp'] };
+    files = files.filter(f => {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      return (exts[fileFilter] || []).includes(ext);
+    });
+  }
+
+  if (!files.length) {
+    const isEmptyFolder = activeFolderId !== 'all' && state.files.filter(f => f.folderId === activeFolderId).length === 0;
+    grid.innerHTML = `<div class="files-empty">
+      ${isEmptyFolder ? '📂 This section is empty.<br><br>Drop files above to add them here!' : '📁 No files match this filter.'}
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = files.slice().reverse().map(f => {
+    const folder = state.fileFolders.find(fd => fd.id === f.folderId);
+    const folderTag = folder
+      ? `<span class="fc-folder-tag" style="color:${folder.color}">${folder.emoji} ${folder.name}</span>`
+      : '';
+    return `
+    <div class="file-card">
+      <div class="fc-icon">${fileIcon(f.name)}</div>
+      <div class="fc-name" title="${f.name}">${f.name}</div>
+      <div class="fc-meta">${f.size||''} · ${fmtDate(f.date)||''}</div>
+      ${folderTag}
+      <div class="fc-folder-select-row">
+        <select class="fc-move-sel" onchange="moveFileTo('${f.id}',this.value)" title="Move to section">
+          ${state.fileFolders.map(fd =>
+            `<option value="${fd.id}" ${fd.id===f.folderId?'selected':''}>${fd.emoji} ${fd.name}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="fc-actions">
+        ${f.url
+          ? `<a class="fc-open" href="${f.url}" target="_blank" rel="noopener">Open ↗</a>`
+          : '<span class="fc-open" style="opacity:0.4;cursor:default">No link</span>'}
+        <button class="fc-del" onclick="deleteFile('${f.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Move file to another folder ───────────────────────────────
+function moveFileTo(fileId, folderId) {
+  state.files = state.files.map(f => f.id === fileId ? {...f, folderId} : f);
+  save(); renderFiles(); renderFileTabs(); renderDashboard();
+}
+
+// ── File type filter ──────────────────────────────────────────
+function filterFiles(f, btn) {
+  fileFilter = f;
+  document.querySelectorAll('#filesTypeFilter .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderFiles();
+}
+
+// ── File upload handlers ──────────────────────────────────────
 function handleFileSelect(event) {
   const files = Array.from(event.target.files);
   uploadFiles(files);
-  event.target.value='';
+  event.target.value = '';
 }
 
 function handleFileDrop(event) {
@@ -775,123 +916,196 @@ function handleFileDrop(event) {
   uploadFiles(Array.from(event.dataTransfer.files));
 }
 
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded', () => {
   const drop = document.getElementById('filesDrop');
-  if(drop){
-    drop.addEventListener('dragenter',()=>drop.classList.add('dragover'));
-    drop.addEventListener('dragleave',()=>drop.classList.remove('dragover'));
+  if (drop) {
+    drop.addEventListener('dragenter', () => drop.classList.add('dragover'));
+    drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
   }
 });
 
 async function uploadFiles(files) {
-  if(!files.length) return;
+  if (!files.length) return;
+  ensureDefaultFolders();
+
+  // Determine target folder
+  const targetFolderId = (activeFolderId === 'all') ? 'general' : activeFolderId;
+
   const prog = document.getElementById('uploadProgress');
   const fill = document.getElementById('upFill');
   const text = document.getElementById('upText');
-  prog.style.display='block';
+  prog.style.display = 'block';
 
-  for(let i=0;i<files.length;i++){
+  for (let i = 0; i < files.length; i++) {
     const file = files[i];
     text.textContent = `Uploading ${i+1}/${files.length}: ${file.name}`;
-    fill.style.width = Math.round((i/files.length)*100)+'%';
+    fill.style.width = Math.round((i / files.length) * 100) + '%';
 
     try {
       const base64 = await toBase64(file);
-      const res = await fetch(DRIVE_UPLOAD_URL,{
-        method:'POST',
-        headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',base64})
+      const res = await fetch(DRIVE_UPLOAD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type || 'application/octet-stream', base64 })
       });
       const result = await res.json();
-      if(!result.success) throw new Error(result.message||'Upload failed');
+      if (!result.success) throw new Error(result.message || 'Upload failed');
 
       state.files.push({
         id: uid(),
-        name: result.file.name||file.name,
-        size: fmtSize(result.file.size||file.size||0),
-        mimeType: result.file.mimeType||file.type,
-        url: result.file.openUrl||'',
-        downloadUrl: result.file.downloadUrl||'',
-        date: new Date().toISOString().split('T')[0]
+        name: result.file.name || file.name,
+        size: fmtSize(result.file.size || file.size || 0),
+        mimeType: result.file.mimeType || file.type,
+        url: result.file.openUrl || '',
+        downloadUrl: result.file.downloadUrl || '',
+        date: new Date().toISOString().split('T')[0],
+        folderId: targetFolderId
       });
 
-    } catch(err) {
+    } catch (err) {
       console.error(err);
-      alert(`Upload failed for ${file.name}: ${err.message}`);
+      // Save locally even if Drive upload fails
+      state.files.push({
+        id: uid(),
+        name: file.name,
+        size: fmtSize(file.size || 0),
+        mimeType: file.type,
+        url: '',
+        downloadUrl: '',
+        date: new Date().toISOString().split('T')[0],
+        folderId: targetFolderId
+      });
+      alert(`Drive upload failed for ${file.name} — saved locally. Error: ${err.message}`);
     }
   }
 
-  fill.style.width='100%';
-  text.textContent='Upload complete ✓';
-  save(); renderFiles(); renderDashboard();
-  setTimeout(()=>{ prog.style.display='none'; fill.style.width='0'; },1500);
+  fill.style.width = '100%';
+  text.textContent = 'Upload complete ✓';
+  save(); renderFiles(); renderFileTabs(); renderDashboard();
+  setTimeout(() => { prog.style.display = 'none'; fill.style.width = '0'; }, 1500);
 }
 
 function toBase64(file) {
-  return new Promise((res,rej)=>{
-    const r=new FileReader();
-    r.onload=()=>res(String(r.result).split(',')[1]);
-    r.onerror=rej;
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = rej;
     r.readAsDataURL(file);
   });
 }
 
 function fmtSize(b) {
-  if(b<1024) return b+' B';
-  if(b<1048576) return (b/1024).toFixed(1)+' KB';
-  return (b/1048576).toFixed(1)+' MB';
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(1) + ' MB';
 }
 
 function fileIcon(name) {
-  const ext=(name.split('.').pop()||'').toLowerCase();
-  const m={pdf:'📄',doc:'📝',docx:'📝',ppt:'📊',pptx:'📊',xls:'📈',xlsx:'📈',
-           jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'🖼️',mp4:'🎬',mp3:'🎵',
-           zip:'🗜️',rar:'🗜️',py:'🐍',js:'⚡',html:'🌐',css:'🎨'};
-  return m[ext]||'📁';
-}
-
-function renderFiles() {
-  const grid = document.getElementById('filesGrid');
-  let files  = state.files;
-  if(fileFilter!=='all'){
-    const exts={pdf:['pdf'],doc:['doc','docx'],ppt:['ppt','pptx'],img:['jpg','jpeg','png','gif','webp']};
-    files=files.filter(f=>{
-      const ext=(f.name.split('.').pop()||'').toLowerCase();
-      return (exts[fileFilter]||[]).includes(ext);
-    });
-  }
-
-  if(!files.length){
-    grid.innerHTML='<div class="files-empty">📁 No files yet.<br><br>Upload lecture slides, notes, and documents — they go straight to your Google Drive!</div>';
-    return;
-  }
-
-  grid.innerHTML = files.slice().reverse().map(f=>`
-    <div class="file-card">
-      <div class="fc-icon">${fileIcon(f.name)}</div>
-      <div class="fc-name" title="${f.name}">${f.name}</div>
-      <div class="fc-meta">${f.size||''} · ${fmtDate(f.date)||''}</div>
-      <div class="fc-actions">
-        ${f.url?`<a class="fc-open" href="${f.url}" target="_blank" rel="noopener">Open ↗</a>`:'<span class="fc-open" style="opacity:0.4;cursor:default">No link</span>'}
-        <button class="fc-del" onclick="deleteFile('${f.id}')">✕</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function filterFiles(f, btn) {
-  fileFilter = f;
-  document.querySelectorAll('#sec-files .filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  renderFiles();
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const m = {
+    pdf:'📄', doc:'📝', docx:'📝', ppt:'📊', pptx:'📊',
+    xls:'📈', xlsx:'📈', jpg:'🖼️', jpeg:'🖼️', png:'🖼️',
+    gif:'🖼️', mp4:'🎬', mp3:'🎵', zip:'🗜️', rar:'🗜️',
+    py:'🐍', js:'⚡', html:'🌐', css:'🎨'
+  };
+  return m[ext] || '📁';
 }
 
 function deleteFile(id) {
-  if(!confirm('Remove this file from the list?')) return;
-  state.files=state.files.filter(x=>x.id!==id);
-  save(); renderFiles(); renderDashboard();
+  if (!confirm('Remove this file from the list?')) return;
+  state.files = state.files.filter(x => x.id !== id);
+  save(); renderFiles(); renderFileTabs(); renderDashboard();
 }
 
+// ── Folder / Section modal ────────────────────────────────────
+let _pickedFolderEmoji = '📁';
+let _pickedFolderColor = '#6EE7B7';
+
+function openFolderModal(id, event) {
+  if (event) event.stopPropagation();
+  editingFolderId = id || null;
+  const folder = id ? state.fileFolders.find(f => f.id === id) : null;
+
+  document.getElementById('folderModalTitle').textContent = folder ? 'Edit Section' : 'New File Section';
+  document.getElementById('folderName').value  = folder ? folder.name : '';
+  document.getElementById('folderDesc').value  = folder ? (folder.desc || '') : '';
+  document.getElementById('folderEmoji').value = folder ? folder.emoji : '';
+  _pickedFolderEmoji = folder ? folder.emoji : '📁';
+  _pickedFolderColor = folder ? folder.color : '#6EE7B7';
+
+  // Emoji picker
+  const emojiRow = document.getElementById('folderEmojiRow');
+  emojiRow.innerHTML = FOLDER_EMOJIS.map(e =>
+    `<button class="fe-emoji-btn ${_pickedFolderEmoji===e?'sel':''}" onclick="pickFolderEmoji('${e}',this)">${e}</button>`
+  ).join('');
+
+  // Color picker
+  const colorRow = document.getElementById('folderColorRow');
+  colorRow.innerHTML = FOLDER_COLORS.map(c =>
+    `<div class="folder-color-dot ${_pickedFolderColor===c?'sel':''}" style="background:${c}" onclick="pickFolderColor('${c}',this)"></div>`
+  ).join('');
+
+  // Hide delete for "general" (protected)
+  const delBtn = document.getElementById('folderDel');
+  delBtn.style.display = (folder && folder.id !== 'general') ? 'block' : 'none';
+
+  showModal('folderModal');
+  setTimeout(() => document.getElementById('folderName').focus(), 50);
+}
+
+function pickFolderEmoji(e, el) {
+  _pickedFolderEmoji = e;
+  document.querySelectorAll('.fe-emoji-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('folderEmoji').value = '';
+}
+
+function pickFolderColor(c, el) {
+  _pickedFolderColor = c;
+  document.querySelectorAll('.folder-color-dot').forEach(d => d.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function saveFolder() {
+  const name = document.getElementById('folderName').value.trim();
+  if (!name) { document.getElementById('folderName').focus(); return; }
+
+  const emojiInput = document.getElementById('folderEmoji').value.trim();
+  const emoji = emojiInput || _pickedFolderEmoji || '📁';
+  const color = _pickedFolderColor || '#6EE7B7';
+  const desc  = document.getElementById('folderDesc').value.trim();
+
+  if (!state.fileFolders) state.fileFolders = [];
+
+  if (editingFolderId) {
+    state.fileFolders = state.fileFolders.map(f =>
+      f.id === editingFolderId ? { ...f, name, emoji, color, desc } : f
+    );
+  } else {
+    const newId = uid();
+    state.fileFolders.push({ id: newId, name, emoji, color, desc });
+    // Auto-switch to the new folder
+    activeFolderId = newId;
+  }
+
+  save(); closeModal(); renderFileTabs(); renderFiles();
+}
+
+function deleteFolder() {
+  if (!editingFolderId || editingFolderId === 'general') return;
+  if (!confirm('Delete this section? Files inside will be moved to General.')) return;
+
+  // Move files to general
+  state.files = state.files.map(f =>
+    f.folderId === editingFolderId ? { ...f, folderId: 'general' } : f
+  );
+  state.fileFolders = state.fileFolders.filter(f => f.id !== editingFolderId);
+
+  if (activeFolderId === editingFolderId) activeFolderId = 'all';
+  editingFolderId = null;
+
+  save(); closeModal(); renderFileTabs(); renderFiles();
+}
 // ===== MODALS =====
 function showModal(id) {
   document.getElementById('modalBackdrop').classList.add('show');
