@@ -772,7 +772,7 @@ const FOLDER_EMOJIS = ['💼','🎓','📐','🧪','📋','🗂️','📊','🖥
 const FOLDER_COLORS = ['#6EE7B7','#60A5FA','#F472B6','#A78BFA','#FBBF24','#FB7185','#34D399','#38BDF8','#F97316','#A3E635'];
 
 let activeFolderId  = 'all';  // 'all' or folder id
-let fileFilter      = 'all';
+fileFilter      = 'all';
 let editingFolderId = null;
 
 // ── Ensure default folders exist on first run ─────────────────
